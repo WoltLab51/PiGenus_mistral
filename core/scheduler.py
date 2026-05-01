@@ -1,32 +1,39 @@
 """
 Scheduler for PiGenus nightly jobs.
 Handles backup, cleanup, and maintenance tasks.
+
+KONTINUITÄT: Läuft dauerhaft, verlässlich und ressourcenschonend.
+Dieser Scheduler stellt sicher, dass PiGenus seine Hintergrundaufgaben
+regelmäßig und zuverlässig ausführt.
 """
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlmodel import Session
+from sqlmodel import Session, func, select
 from datetime import datetime, timedelta
 import logging
 import shutil
 import os
 from db.database import engine
-from db.models import Job, JobStatus, JobEvent, AuditLog, Session as DbSession
+from db.models import Job, JobStatus, JobEvent, AuditLog, Session as DbSession, Message
 from core.config import settings
+from core.philosophy import PiGenusPrinciple
 
 logger = logging.getLogger(__name__)
 
 
 def rotate_logs():
-    """Rotate application logs."""
+    """
+    Rotiert Anwendungs-Logs (KONTINUITÄT: Regelmäßige Wartung).
+    """
     log_file = "pigenus.log"
     if os.path.exists(log_file):
         try:
-            # Rotate up to 5 log files
+            # Rotiert bis zu 5 Log-Dateien
             for i in range(4, 0, -1):
                 if os.path.exists(f"{log_file}.{i}"):
                     shutil.move(f"{log_file}.{i}", f"{log_file}.{i+1}")
             shutil.move(log_file, f"{log_file}.1")
-            logger.info("Logs rotated")
+            logger.info("Logs rotated (KONTINUITÄT)")
         except Exception as e:
             logger.error(f"Failed to rotate logs: {e}")
     else:
@@ -34,7 +41,9 @@ def rotate_logs():
 
 
 def backup_database():
-    """Create a backup of the SQLite database."""
+    """
+    Erstellt ein Backup der SQLite-Datenbank (KONTINUITÄT: Datensicherheit).
+    """
     db_path = settings.database_url.replace("sqlite:///", "")
     if not db_path or db_path == ":memory:":
         logger.debug("No database to backup (in-memory)")
@@ -47,24 +56,26 @@ def backup_database():
 
     try:
         shutil.copy2(db_path, backup_path)
-        logger.info(f"Database backup created: {backup_path}")
+        logger.info(f"Database backup created: {backup_path} (KONTINUITÄT)")
 
-        # Clean up old backups (keep last 7 days)
+        # Alte Backups bereinigen (letzte 7 Tage behalten)
         for filename in os.listdir(backup_dir):
             if filename.endswith(".db"):
                 filepath = os.path.join(backup_dir, filename)
                 file_time = datetime.fromtimestamp(os.path.getmtime(filepath))
                 if datetime.utcnow() - file_time > timedelta(days=7):
                     os.remove(filepath)
-                    logger.info(f"Removed old backup: {filename}")
+                    logger.info(f"Removed old backup: {filename} (KONTINUITÄT)")
     except Exception as e:
         logger.error(f"Failed to backup database: {e}")
 
 
 def requeue_stuck_jobs():
-    """Requeue jobs that are stuck in LEASED status."""
+    """
+    Setzt Jobs, die zu lange im LEASED-Status sind, zurück auf PENDING (ORCHESTRIERUNG: Job-Koordination).
+    """
     with Session(engine) as session:
-        # Find jobs stuck in LEASED for too long
+        # Jobs finden, die zu lange im LEASED-Status sind
         stuck_jobs = session.exec(
             select(Job).where(
                 Job.status == JobStatus.LEASED,
@@ -78,15 +89,15 @@ def requeue_stuck_jobs():
             job.worker_id = None
             session.add(job)
 
-            # Add job event
+            # Job-Event hinzufügen (ORCHESTRIERUNG)
             session.add(JobEvent(
                 job_id=job.id,
                 event_type="requeued",
                 timestamp=datetime.utcnow(),
-                details="Job was stuck in LEASED state"
+                details="Job was stuck in LEASED state (ORCHESTRIERUNG)"
             ))
 
-            # Log the action
+            # Audit-Log (ADMINISTRATION)
             session.add(AuditLog(
                 action="job_requeued",
                 job_id=job.id,
@@ -94,43 +105,43 @@ def requeue_stuck_jobs():
             ))
 
         session.commit()
-        logger.info(f"Requeued {len(stuck_jobs)} stuck jobs")
+        logger.info(f"Requeued {len(stuck_jobs)} stuck jobs (ORCHESTRIERUNG)")
 
 
 def summarize_sessions():
-    """Create summaries for recent sessions."""
+    """
+    Erstellt Zusammenfassungen für aktuelle Sessions (PERSISTENZ: Wissensverdichtung).
+    """
     with Session(engine) as session:
-        # Get sessions from the last 24 hours
+        # Sessions der letzten 24 Stunden
         yesterday = datetime.utcnow() - timedelta(days=1)
-        sessions = session.exec(
+        db_sessions = session.exec(
             select(DbSession).where(DbSession.created_at >= yesterday)
         ).all()
 
-        for session in sessions:
-            # Count messages in session
+        for db_session in db_sessions:
+            # Nachrichten in der Session zählen (PERSISTENZ)
             message_count = session.exec(
-                select(func.count()).where(Message.session_id == session.id)
+                select(func.count()).where(Message.session_id == db_session.id)
             ).one()
 
-            # Count jobs in session
+            # Jobs in der Session zählen (ORCHESTRIERUNG)
             job_count = session.exec(
-                select(func.count()).where(Job.session_id == session.id)
+                select(func.count()).where(Job.session_id == db_session.id)
             ).one()
 
-            # Here you could add AI summarization
-            # For now, just log the session stats
             logger.info(
-                f"Session {session.id}: "
-                f"{message_count} messages, {job_count} jobs"
+                f"Session {db_session.id}: {message_count} messages, {job_count} jobs (PERSISTENZ)"
             )
-
-            # TODO: Store summary in MemoryItem or Session table
+            # TODO: Hier könnte eine KI-Zusammenfassung erstellt werden
 
 
 def cleanup_old_jobs():
-    """Clean up old completed/failed jobs."""
+    """
+    Bereinigt alte abgeschlossene Jobs (ADMINISTRATION: Systempflege).
+    """
     with Session(engine) as session:
-        # Delete jobs older than 30 days (keep recent for audit)
+        # Jobs älter als 30 Tage löschen (ADMINISTRATION)
         cutoff = datetime.utcnow() - timedelta(days=30)
         old_jobs = session.exec(
             select(Job).where(
@@ -143,27 +154,46 @@ def cleanup_old_jobs():
             session.delete(job)
 
         session.commit()
-        logger.info(f"Cleaned up {len(old_jobs)} old jobs")
+        logger.info(f"Cleaned up {len(old_jobs)} old jobs (ADMINISTRATION)")
 
 
 def nightly_jobs():
-    """Run all nightly maintenance jobs."""
-    logger.info("Running nightly jobs...")
+    """
+    Führt alle Nachtjobs aus (KONTINUITÄT: Regelmäßige Wartung).
+    
+    Diese Funktion wird täglich um 3 Uhr UTC ausgeführt und stellt sicher,
+    dass PiGenus seine Hintergrundaufgaben zuverlässig erledigt.
+    """
+    logger.info("Running nightly jobs (KONTINUITÄT)...")
 
-    rotate_logs()
+    # PERSISTENZ: Backups sichern
     backup_database()
+
+    # KONTINUITÄT: Logs rotieren
+    rotate_logs()
+
+    # ORCHESTRIERUNG: Stuck Jobs requeuen
     requeue_stuck_jobs()
+
+    # PERSISTENZ: Wissensverdichtung (Session-Zusammenfassungen)
     summarize_sessions()
+
+    # ADMINISTRATION: Alte Jobs bereinigen
     cleanup_old_jobs()
 
-    logger.info("Nightly jobs completed")
+    logger.info("Nightly jobs completed (KONTINUITÄT)")
 
 
 def start_scheduler():
-    """Start the background scheduler for nightly jobs."""
+    """
+    Startet den Hintergrund-Scheduler für Nachtjobs (KONTINUITÄT: Dauerhafter Betrieb).
+    
+    Der Scheduler läuft als separater Prozess und führt die Nachtjobs
+    zur konfigurierten Uhrzeit aus.
+    """
     scheduler = BackgroundScheduler()
 
-    # Run nightly jobs at configured hour
+    # Nachtjobs zur konfigurierten Stunde ausführen
     scheduler.add_job(
         nightly_jobs,
         CronTrigger(
@@ -171,21 +201,21 @@ def start_scheduler():
             minute=0
         ),
         id="nightly_jobs",
-        name="Run nightly maintenance jobs",
+        name="Run nightly maintenance jobs (KONTINUITÄT)",
         replace_existing=True
     )
 
     scheduler.start()
-    logger.info(f"Scheduler started (nightly jobs at {settings.nightly_jobs_hour}:00 UTC)")
+    logger.info(f"Scheduler started (nightly jobs at {settings.nightly_jobs_hour}:00 UTC) (KONTINUITÄT)")
 
-    # Keep the scheduler running
+    # Scheduler am Laufen halten
     try:
         while True:
             import time
             time.sleep(60)
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-        logger.info("Scheduler stopped")
+        logger.info("Scheduler stopped (KONTINUITÄT)")
 
 
 if __name__ == "__main__":
