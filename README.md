@@ -1,187 +1,248 @@
 # PiGenus
 
-**Private Orchestration Node for the GENUS Ecosystem**
-
-PiGenus is a **persistent orchestration node** designed to run on a **Raspberry Pi 5** as the core infrastructure component for the GENUS ecosystem. It provides:
-
-- **Long-term memory and persistence** (sessions, messages, tasks, memory)
-- **Task queue and job lifecycle management**
-- **Worker coordination** (laptops, workstations, cloud workers)
-- **Secure remote private access** (Tailscale/WireGuard ready)
-- **Administration and monitoring**
-- **Nightly maintenance workflows** (backup, cleanup, summarization)
-- **Development workflow orchestration** (GitHub/coding agents integration)
+**Der dauerhaft verfügbare, private Infrastruktur-Kern des GENUS-Systems**
 
 ---
 
-## 🚀 Quick Start
+## 🎯 Philosophie
 
-### 1. Clone the Repository
+PiGenus ist **der dauerhaft verfügbare, private Infrastruktur-Kern** des GENUS-Systems, betrieben auf energieeffizienter lokaler Hardware (primär Raspberry Pi), der:
+
+- **Erinnerung, Koordination, Verwaltung, sichere Erreichbarkeit und systemübergreifende Orchestrierung** übernimmt.
+
+PiGenus ist **KEIN**:
+- Einzelner Chatbot
+- Primäres Sprachmodell
+- Hochleistungsrechner
+- Reines Frontend
+- Wegwerf-Projekt
+- Bloßer Raspberry-Pi-Spielversuch
+- Autonomer Selbstzweck
+
+> **Betriebsphilosophie**:
+> *"Nicht maximale Leistung, sondern maximale Verlässlichkeit.*
+> *Nicht alles selbst tun, sondern alles sinnvoll koordinieren.*
+> *Nicht kurzfristig beeindrucken, sondern langfristig tragen."*
+
+---
+
+## 🏛️ Die fünf Grundfunktionen
+
+PiGenus erfüllt fünf zentrale Funktionen, die das GENUS-Ökosystem erst ermöglichen:
+
+| Funktion | Beschreibung | Implementierung |
+|----------|--------------|----------------|
+| **💾 Persistenz** | Bewahrt Zustände über Zeit (Erinnerungen, Verläufe, Konfigurationen, Aufgabenstände). | `MemoryItem`, `Session`, `AuditLog` |
+| **🎭 Orchestrierung** | Verteilt Arbeit intelligent an geeignete Ressourcen. | `Worker`, `Job`, Prioritäten |
+| **🛠️ Administration** | Verwaltet das Gesamtsystem (Benutzer, Geräte, Regeln, Backups). | JWT-Auth, Admin-Endpunkte |
+| **🌐 Schnittstellenfähigkeit** | Verbindet unterschiedliche Geräte, Dienste und Instanzen. | REST-API, Worker-Client |
+| **⚡ Kontinuität** | Läuft dauerhaft, verlässlich und ressourcenschonend. | systemd, APScheduler |
+
+**→ [Detaillierte Philosophie](docs/philosophy.md)**
+
+---
+
+## 📌 Wesensdefinition
+
+PiGenus ist **die stabile Basisschicht**, auf der wechselnde Intelligenzen, Worker, Geräte und Dienste organisiert zusammenarbeiten.
+
+| GENUS | PiGenus |
+|-------|---------|
+| Organismus | Rückenmark + Gedächtnis + Kreislauf + Leitstand |
+| Gesamtsystem intelligenter Fähigkeiten und Erlebnisse | Lokaler, verlässlicher Kern |
+| Enthält alle Module (LLMs, Worker, Clients) | Koordiniert die Module |
+
+---
+
+## 🚀 Schnellstart
+
+### 1. Repository klonen
 ```bash
 git clone https://github.com/WoltLab51/PiGenus_mistral.git
 cd PiGenus_mistral
 ```
 
-### 2. Install Dependencies
+### 2. Abhängigkeiten installieren
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 3. Configure Environment
+### 3. Umgebungsvariablen konfigurieren
 ```bash
 cp .env.example .env
-# Edit .env with your settings (SECRET_KEY, DATABASE_URL, etc.)
+# .env anpassen (SECRET_KEY, DATABASE_URL, etc.)
 ```
 
-### 4. Initialize Database
+### 4. Datenbank initialisieren
 ```bash
 python scripts/init_db.py
 ```
 
-### 5. Run PiGenus
+### 5. PiGenus starten (Development)
 ```bash
 uvicorn api.main:app --reload
 ```
 
-### 6. Deploy with systemd (Production)
+### 6. Mit systemd deployen (Production)
 ```bash
-# Copy systemd services
+# Services kopieren
 sudo cp systemd/pigenus.service /etc/systemd/system/
 sudo cp systemd/pigenus-scheduler.service /etc/systemd/system/
 
-# Enable and start services
+# Services aktivieren und starten
 sudo systemctl daemon-reload
-sudo systemctl enable pigenus
-sudo systemctl enable pigenus-scheduler
-sudo systemctl start pigenus
-sudo systemctl start pigenus-scheduler
+sudo systemctl enable pigenus pigenus-scheduler
+sudo systemctl start pigenus pigenus-scheduler
 ```
 
 ---
 
-## 📡 API Documentation
+## 📡 API-Dokumentation
 
-The API is available at:
+Die API ist verfügbar unter:
 - **Swagger UI**: `http://<host>:8000/docs`
 - **ReDoc**: `http://<host>:8000/redoc`
 
-### Endpoints
+### Endpunkte (nach Grundfunktionen gruppiert)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/auth/token` | POST | Generate JWT token |
-| `/workers/register` | POST | Register a worker |
-| `/workers/heartbeat` | POST | Worker heartbeat |
-| `/workers/list` | GET | List all workers |
-| `/jobs/submit` | POST | Submit a job |
-| `/jobs/lease` | GET | Lease a job |
-| `/jobs/{id}/ack` | POST | Acknowledge job completion |
-| `/jobs/{id}/fail` | POST | Report job failure |
-| `/memory/get/{key}` | GET | Retrieve memory item |
-| `/memory/set` | POST | Store memory item |
-| `/admin/status` | GET | Admin status (workers, jobs, metrics) |
+#### 💾 Persistenz
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/memory/set` | POST | Memory-Item speichern |
+| `/memory/get/{key}` | GET | Memory-Item abrufen |
+| `/memory/list` | GET | Alle Memory-Items anzeigen |
+
+#### 🎭 Orchestrierung
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/workers/register` | POST | Worker registrieren |
+| `/workers/heartbeat` | POST | Worker-Heartbeat senden |
+| `/workers/list` | GET | Alle Worker anzeigen |
+| `/jobs/submit` | POST | Job einreichen |
+| `/jobs/lease` | GET | Job leasen |
+| `/jobs/{id}/ack` | POST | Job bestätigen |
+| `/jobs/{id}/fail` | POST | Job als fehlgeschlagen melden |
+| `/jobs/list` | GET | Jobs auflisten |
+
+#### 🛠️ Administration
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/auth/token` | POST | JWT-Token generieren |
+| `/admin/status` | GET | Systemstatus abrufen |
+| `/admin/audit-logs` | GET | Audit-Logs anzeigen |
+| `/admin/users` | GET | Benutzerliste abrufen |
+
+#### 🌐 Schnittstellenfähigkeit
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/health` | GET | Health-Check |
+
+#### ⚡ Kontinuität
+| Endpunkt | Methode | Beschreibung |
+|----------|---------|--------------|
+| `/health` | GET | System-Health-Status |
 
 ---
 
-## 📂 Project Structure
+## 📂 Projektstruktur
 
 ```
 pigenus/
-├── .env.example
-├── .gitignore
-├── LICENSE
-├── pyproject.toml
-├── README.md
-├── requirements.txt
+├── .env.example                  # Umgebungsvariablen-Vorlage
+├── .gitignore                    # Git-Ignore-Regeln
+├── LICENSE                       # MIT-Lizenz
+├── README.md                     # Hauptdokumentation
+├── pyproject.toml                # Python-Projektkonfiguration
+├── requirements.txt              # Abhängigkeiten
 │
-├── api/
+├── api/                          # FastAPI-Endpunkte
 │   ├── __init__.py
-│   ├── main.py               # FastAPI app
-│   ├── auth.py               # JWT authentication
-│   ├── dependencies.py       # Dependencies (DB session)
-│   ├── middleware.py         # Rate limiting, logging
+│   ├── main.py                   # Hauptanwendung
+│   ├── auth.py                   # JWT-Authentifizierung
+│   ├── dependencies.py           # Abhängigkeiten-Injection
+│   ├── middleware.py             # Rate Limiting & Logging
 │   └── endpoints/
-│       ├── __init__.py
-│       ├── health.py         # /health
-│       ├── auth.py           # /auth/token
-│       ├── workers.py        # /workers/*
-│       ├── jobs.py           # /jobs/*
-│       ├── memory.py         # /memory/*
-│       └── admin.py          # /admin/*
+│       ├── health.py             # /health (Kontinuität)
+│       ├── auth.py               # /auth/token (Administration)
+│       ├── workers.py            # /workers/* (Orchestrierung)
+│       ├── jobs.py               # /jobs/* (Orchestrierung)
+│       ├── memory.py             # /memory/* (Persistenz)
+│       └── admin.py              # /admin/* (Administration)
 │
-├── core/
+├── core/                         # Kernlogik
 │   ├── __init__.py
-│   ├── config.py             # Settings (Pydantic)
-│   ├── job_manager.py        # Job lifecycle
-│   ├── worker_manager.py     # Worker coordination
-│   └── scheduler.py          # Nightly jobs (APScheduler)
+│   ├── philosophy.py             # 🎯 Philosophie & Prinzipien
+│   ├── config.py                 # Einstellungen (Pydantic)
+│   ├── scheduler.py              # Nachtjobs (Kontinuität)
+│   └── ...
 │
-├── db/
+├── db/                           # Datenbank
 │   ├── __init__.py
-│   ├── database.py           # SQLite connection
-│   └── models.py             # SQLModel entities
+│   ├── database.py               # SQLite-Verbindung
+│   └── models.py                 # SQLModel-Entitäten (Persistenz)
 │
-├── models/
+├── models/                       # Pydantic-Schemas
 │   ├── __init__.py
-│   ├── schemas.py            # Pydantic schemas
-│   └── enums.py              # Status enums
+│   ├── schemas.py                # Request/Response-Schemas
+│   └── enums.py                  # Status-Enums
 │
-├── workers/
+├── workers/                      # Worker-Integration
 │   ├── __init__.py
-│   └── client.py             # Worker client (for testing)
+│   └── client.py                 # Worker-Client (Schnittstellenfähigkeit)
 │
-├── memory/
+├── memory/                       # Langzeitspeicher
 │   ├── __init__.py
-│   ├── storage.py            # Memory storage (SQLite)
-│   └── summarizer.py         # Session summarization
+│   ├── storage.py                # Memory-Speicher (Persistenz)
+│   └── summarizer.py             # Session-Zusammenfassung (Persistenz)
 │
-├── security/
+├── security/                     # Sicherheit
 │   ├── __init__.py
-│   ├── tokens.py             # JWT token management
-│   └── validation.py         # Input validation
+│   ├── tokens.py                 # JWT-Token-Verwaltung
+│   └── validation.py             # Input-Validation
 │
-├── services/
+├── services/                     # Hintergrunddienste
 │   ├── __init__.py
-│   ├── audit.py              # Audit logs
-│   └── backup.py             # Backup logic
+│   ├── audit.py                  # Audit-Logs (Administration)
+│   └── backup.py                 # Backup-Logik (Kontinuität)
 │
-├── monitoring/
+├── monitoring/                   # Überwachung
 │   ├── __init__.py
-│   ├── health.py             # Health checks
-│   └── metrics.py            # Prometheus metrics
+│   ├── health.py                 # Health-Checks (Kontinuität)
+│   └── metrics.py                # Prometheus-Metriken
 │
-├── tests/
+├── tests/                        # Tests
 │   ├── __init__.py
-│   ├── conftest.py           # pytest fixtures
-│   ├── test_api.py           # API tests
-│   ├── test_core.py          # Core logic tests
-│   └── test_db.py            # DB tests
+│   ├── conftest.py               # pytest-Fixtures
+│   ├── test_api.py               # API-Tests
+│   ├── test_core.py              # Core-Logik-Tests
+│   └── test_db.py                # DB-Tests
 │
-├── docs/
-│   ├── architecture.md       # Architecture documentation
-│   ├── api.md                # API documentation
-│   └── deployment.md         # Deployment guide
+├── docs/                         # Dokumentation
+│   ├── philosophy.md             # 🎯 Philosophie (detailliert)
+│   ├── architecture.md           # Architektur
+│   ├── api.md                    # API-Dokumentation
+│   └── deployment.md             # Deployment-Anleitung
 │
-├── scripts/
-│   ├── init_db.py            # DB initialization
-│   └── nightly_jobs.sh       # Cron jobs (backup)
+├── scripts/                      # Skripte
+│   ├── __init__.py
+│   ├── init_db.py                # DB-Initialisierung
+│   └── nightly_jobs.sh           # Nachtjobs (Kontinuität)
 │
-└── systemd/
-    ├── pigenus.service       # Main service
-    └── pigenus-scheduler.service  # Scheduler service
+└── systemd/                      # systemd-Services
+    ├── pigenus.service            # Haupt-Service (Kontinuität)
+    └── pigenus-scheduler.service  # Scheduler-Service (Kontinuität)
 ```
 
 ---
 
-## 🔧 Development
+## 🔧 Entwicklung
 
-### Run Tests
+### Tests ausführen
 ```bash
 pytest -v
 ```
 
-### Code Quality
+### Code-Qualität
 ```bash
 black .
 isort .
@@ -190,15 +251,24 @@ flake8
 
 ---
 
-## 🔒 Security
+## 🔒 Sicherheit
 
-- **Token Authentication**: All endpoints (except `/health`) require a JWT token.
-- **Input Validation**: All requests are validated with Pydantic.
-- **Rate Limiting**: Ready for implementation (see `api/middleware.py`).
-- **Secrets**: Loaded only via environment variables or config files.
+- **Token-Authentifizierung**: Alle Endpunkte (außer `/health`) erfordern ein JWT-Token.
+- **Input-Validation**: Alle Requests werden mit Pydantic validiert.
+- **Rate Limiting**: Vorbereitet in `api/middleware.py` (deaktiviert per Default).
+- **Secrets**: Werden nur über Umgebungsvariablen oder Konfiguration geladen.
 
 ---
 
-## 📜 License
+## 📜 Lizenz
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+Dieses Projekt steht unter der **MIT-Lizenz** – siehe [LICENSE](LICENSE) für Details.
+
+---
+
+## 📚 Weiterführende Dokumentation
+
+- [🎯 Philosophie](docs/philosophy.md) – Detaillierte Beschreibung der Grundprinzipien
+- [🏗️ Architektur](docs/architecture.md) – Technische Details der Implementierung
+- [📡 API-Dokumentation](docs/api.md) – Beschreibung aller Endpunkte
+- [🚀 Deployment](docs/deployment.md) – Installation und Betrieb
