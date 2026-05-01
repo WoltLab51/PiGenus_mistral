@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from api.endpoints import health, auth, workers, jobs, memory, admin
+from api.middleware import setup_middleware, logging_middleware, error_middleware
 from core.config import settings
 from db.database import engine
 from db.models import SQLModel
@@ -46,6 +47,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup custom middleware
+setup_middleware(app)
 
 # Include API routers
 app.include_router(health.router, tags=["health"])
