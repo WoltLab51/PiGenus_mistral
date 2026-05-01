@@ -1,0 +1,21 @@
+[Unit]
+Description=PiGenus Scheduler (Nightly Jobs)
+After=network.target
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/PiGenus_mistral
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=/home/pi/PiGenus_mistral/.env
+ExecStart=/usr/bin/python3 -c "from core.scheduler import start_scheduler; start_scheduler()"
+Restart=always
+RestartSec=5
+
+# Security
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
